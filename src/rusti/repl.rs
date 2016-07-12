@@ -74,6 +74,9 @@ static COMMANDS: &'static [CommandDef] = &[
     CommandDef{name: "type", args: Some("<expr>"),
         accepts: CmdArgs::Expr,
         help: "Show the type of expr"},
+    CommandDef{name: "edit", args: None,
+        accepts: CmdArgs::Nothing,
+        help: "Edit file"},
 ];
 
 /// Executes input code and maintains state of persistent items.
@@ -143,7 +146,7 @@ impl Repl {
     }
 
     /// Runs the REPL interactively.
-    pub fn run(&mut self) {
+    pub fn run(&mut self, path: Option<&Path>) {
         let mut more = false;
         let mut input = InputReader::new();
 
@@ -160,7 +163,7 @@ impl Repl {
                     debug!("read command: {} {:?}", name, args);
 
                     more = false;
-                    self.handle_command(name, args);
+                    self.handle_command(name, args, path);
                 },
                 Program(input) => {
                     debug!("read program: {:?}", input);
@@ -189,7 +192,7 @@ impl Repl {
     /// Runs a single `rusti` command.
     pub fn run_command(&mut self, cmd: &str) {
         match parse_command(cmd, false) {
-            Command(name, args) => self.handle_command(name, args),
+            Command(name, args) => self.handle_command(name, args, None),
             InputError(Some(err)) => println!("{}", err),
             _ => ()
         }
@@ -220,7 +223,7 @@ impl Repl {
 
             match input {
                 Program(input) => self.handle_input(input, false),
-                Command(name, args) => self.handle_command(name, args),
+                Command(name, args) => self.handle_command(name, args, Some(path)),
                 InputError(Some(e)) => {
                     println!("{}: {}", self.argv0, e);
                     return false;
@@ -283,7 +286,7 @@ r#"#![allow(dead_code, unused_imports, unused_features)]
     }
 
     /// Runs a single command input.
-    fn handle_command(&mut self, cmd: String, args: Option<String>) {
+    fn handle_command(&mut self, cmd: String, args: Option<String>, path: Option<&Path>) {
         match lookup_command(&cmd).map(|c| c.name) {
             Some("block") => {
                 self.read_block = true;
@@ -310,6 +313,17 @@ r#"#![allow(dead_code, unused_imports, unused_features)]
                     self.type_command(args);
                 } else {
                     println!("command `type` expects an expression");
+                }
+            },
+            Some("edit") => {
+                use std::process::Command;
+                if let Some(path) = path {
+                    // TODO: take command from $EDITOR
+                    let mut command = Command::new("gedit");
+                    command.arg(path);
+                    command.spawn();
+                } else {
+                    println!("rusti was launched without a filename");
                 }
             },
             _ => println!("unrecognized command `{}`", cmd),

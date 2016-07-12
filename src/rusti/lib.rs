@@ -29,7 +29,7 @@ extern crate env_logger;
 
 use getopts::Options;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub mod completion;
 pub mod exec;
@@ -92,20 +92,24 @@ pub fn run() -> i32 {
         }
     }
 
+    let path = if matches.free.is_empty() {
+        None
+    } else {
+        Some(Path::new(&matches.free[0]))
+    };
+
     if let Some(cmd) = matches.opt_str("c") {
         repl.run_command(&cmd);
     } else if let Some(expr) = matches.opt_str("e") {
         repl.eval(&expr);
-    } else if !matches.free.is_empty() {
-        let path = PathBuf::from(&matches.free[0]);
-
+    } else if let Some(path) = path {
         if !repl.run_file(&path) {
             return 1;
         }
     }
 
     if interactive {
-        repl.run();
+        repl.run(path);
     }
 
     0
